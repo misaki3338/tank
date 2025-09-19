@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ミリタリー対戦ゲーム</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2d2d2d;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
+        
+        #game-canvas {
+            background-color: #363636;
+            border: 2px solid #555;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        .ui-container {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+        
+        .player-status {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid #666;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .player-status.p1 {
+            border-left: 4px solid #4285f4;
+        }
+        
+        .player-status.p2 {
+            border-left: 4px solid #ea4335;
+        }
+        
+        .health-bar {
+            width: 100px;
+            height: 10px;
+            background-color: #333;
+            margin: 0 10px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background-color: #4caf50;
+            transition: width 0.3s;
+        }
+        
+        .ammo-count {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .buff-icons {
+            display: flex;
+        }
+        
+        .buff-icon {
+            width: 20px;
+            height: 20px;
+            margin-left: 5px;
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+        
+        .buff-icon.active {
+            opacity: 1;
+        }
+        
+        .game-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        .control-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="800" height="600"></canvas>
+        
+        <div class="ui-container">
+            <div class="player-status p1">
+                <span>BLUE</span>
+                <div class="health-bar">
+                    <div id="p1-health" class="health-fill" style="width: 100%;"></div>
+                </div>
+                <span class="ammo-count" id="p1-ammo">20</span>
+                <div class="buff-icons">
+                    <div id="p1-buff-spread" class="buff-icon" style="background-color: #ffeb3b;"></div>
+                    <div id="p1-buff-ricochet" class="buff-icon" style="background-color: #ff9800;"></div>
+                    <div id="p1-buff-bot" class="buff-icon" style="background-color: #C0C0C0;"></div>
+                </div>
+            </div>
+            
+            <div class="player-status p2">
+                <div class="buff-icons">
+                    <div id="p2-buff-spread" class="buff-icon" style="background-color: #ffeb3b;"></div>
+                    <div id="p2-buff-ricochet" class="buff-icon" style="background-color: #ff9800;"></div>
+                    <div id="p2-buff-bot" class="buff-icon" style="background-color: #C0C0C0;"></div>
+                </div>
+                <span class="ammo-count" id="p2-ammo">20</span>
+                <div class="health-bar">
+                    <div id="p2-health" class="health-fill" style="width: 100%;"></div>
+                </div>
+                <span>RED</span>
+            </div>
+        </div>
+        
+        <div class="game-message" id="game-message">
+            <h2 id="message-text">プレイヤー1の勝利！</h2>
+            <p>スペースキーでリスタート</p>
+        </div>
+        
+        <div class="control-info">
+            P1: WASD移動, G射撃 | P2: ↑←↓→移動, L射撃
+        </div>
+    </div>
+    
+    <script>
+        // ゲームコンフィグ
+        const CONFIG = {
+            playerSpeed: 3,
+            bulletSpeed: 5,
+            bulletCooldown: 400, // ms
+            playerSize: 20,
+            bulletSize: 5,
+            maxHealth: 100,
+            maxAmmo: 20,
+            ammoRegenRate: 2000, // ms per ammo regeneration
+            itemSpawnRate: 0.002, // 毎フレームのアイテムスポーン確率
+            itemSize: 10,
+            buffDuration: 10000, // ms
+            botLifetime: 15000, // ms
+            botShootInterval: 1500, // ms
+            wallCount: 15, // 壁の数
+        };
+        
+        // ゲーム状態
+        const game = {
+            canvas: document.getElementById('game-canvas'),
+            ctx: null,
+            width: 800,
+            height: 600,
+            running: false,
+            lastTime: 0,
+            keys: {},
+            players: [],
+            bullets: [],
+            walls: [],
+            items: [],
+            bots: [],
+            effects: [], // エフェクト用
+        };
+        
+        // アイテムタイプ
+        const ITEM_TYPES = {
+            SPREAD: 0,
+            RICOCHET: 1,
+            BOT: 2,
+            HEALTH: 3
+        };
+        
+        // キーコード
+        const KEYS = {
+            W: 87,
+            A: 65,
+            S: 83,
+            D: 68,
+            G: 71,
+            UP: 38,
+            LEFT: 37,
+            DOWN: 40,
+            RIGHT: 39,
+            L: 76,
+            SPACE: 32
+        };
+        
+        // 初期化
+        function init() {
+            game.ctx = game.canvas.getContext('2d');
+            game.width = game.canvas.width;
+            game.height = game.canvas.height;
+            
+            // イベントリスナー
+            window.addEventListener('keydown', (e) => { game.keys[e.keyCode] = true; });
+            window.addEventListener('keyup', (e) => { game.keys[e.keyCode] = false; });
+            
+            // プレイヤー初期化
+            resetGame();
+            
+            // ゲームループ開始
+            game.running = true;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // ゲームリセット
+        function resetGame() {
+            // プレイヤー設定
+            game.players = [
+                {
+                    x: game.width * 0.25,
+                    y: game.height * 0.5,
+                    angle: 0,
+                    speed: CONFIG.playerSpeed,
+                    size: CONFIG.playerSize,
+                    health: CONFIG.maxHealth,
+                    ammo: CONFIG.maxAmmo,
+                    ammoRegenTimer: 0,
+                    color: '#4285f4', // 青プレイヤー
+                    shootCooldown: 0,
+                    moveKeys: {up: KEYS.W, left: KEYS.A, down: KEYS.S, right: KEYS.D},
+                    shootKey: KEYS.G,
+                    buffSpread: 0,
+                    buffRicochet: 0,
+                    buffBot: 0
+                },
+                {
+                    x: game.width * 0.75,
+                    y: game.height * 0.5,
+                    angle: Math.PI,
+                    speed: CONFIG.playerSpeed,
+                    size: CONFIG.playerSize,
+                    health: CONFIG.maxHealth,
+                    ammo: CONFIG.maxAmmo,
+                    ammoRegenTimer: 0,
+                    color: '#ea4335', // 赤プレイヤー
+                    shootCooldown: 0,
+                    moveKeys: {up: KEYS.UP, left: KEYS.LEFT, down: KEYS.DOWN, right: KEYS.RIGHT},
+                    shootKey: KEYS.L,
+                    buffSpread: 0,
+                    buffRicochet: 0,
+                    buffBot: 0
+                }
+            ];
+            
+            // 壁生成
+            game.walls = [];
+            for (let i = 0; i < CONFIG.wallCount; i++) {
+                createRandomWall();
+            }
+            
+            // 配列初期化
+            game.bullets = [];
+            game.items = [];
+            game.bots = [];
+            game.effects = [];
+            
+            // UI更新
+            updateUI();
+            
+            // メッセージ非表示
+            document.getElementById('game-message').style.display = 'none';
+        }
+        
+        // ランダムな壁を生成
+        function createRandomWall() {
+            const minSize = 30;
+            const maxSize = 100;
+            const width = minSize + Math.random() * (maxSize - minSize);
+            const height = minSize + Math.random() * (maxSize - minSize);
+            const x = Math.random() * (game.width - width);
+            const y = Math.random() * (game.height - height);
+            
+            // プレイヤーの初期位置に壁を作らない
+            const p1SafeZone = {x: game.width * 0.25, y: game.height * 0.5, r: CONFIG.playerSize * 3};
+            const p2SafeZone = {x: game.width * 0.75, y: game.height * 0.5, r: CONFIG.playerSize * 3};
+            
+            if (rectCircleCollision({x, y, width, height}, p1SafeZone) ||
+                rectCircleCollision({x, y, width, height}, p2SafeZone)) {
+                return createRandomWall();
+            }
+            
+            game.walls.push({
+                x, y, width, height,
+                color: '#555'
+            });
+        }
+        
+        // 四角と円の衝突判定
+        function rectCircleCollision(rect, circle) {
+            const distX = Math.abs(circle.x - rect.x - rect.width/2);
+            const distY = Math.abs(circle.y - rect.y - rect.height/2);
+            
+            if (distX > (rect.width/2 + circle.r)) return false;
+            if (distY > (rect.height/2 + circle.r)) return false;
+            
+            if (distX <= (rect.width/2)) return true;
+            if (distY <= (rect.height/2)) return true;
+            
+            const dx = distX - rect.width/2;
+            const dy = distY - rect.height/2;
+            return (dx*dx + dy*dy <= (circle.r*circle.r));
+        }
+        
+        // ゲームループ
+        function gameLoop(timestamp) {
+            if (!game.running) return;
+            
+            // デルタタイム計算
+            const deltaTime = timestamp - game.lastTime;
+            game.lastTime = timestamp;
+            
+            // 更新
+            update(deltaTime);
+            
+            // 描画
+            render();
+            
+            // 次のフレーム
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 更新処理
+        function update(deltaTime) {
+            // ゲームオーバーチェック
+            if (isGameOver()) {
+                return;
+            }
+            
+            // プレイヤー更新
+            updatePlayers(deltaTime);
+            
+            // 弾丸更新
+            updateBullets(deltaTime);
+            
+            // ボット更新
+            updateBots(deltaTime);
+            
+            // アイテム生成
+            if (Math.random() < CONFIG.itemSpawnRate && game.items.length < 5) {
+                spawnRandomItem();
+            }
+            
+            // エフェクト更新
+            updateEffects(deltaTime);
+            
+            // UI更新
+            updateUI();
+        }
+        
+        // プレイヤー更新
+        function updatePlayers(deltaTime) {
+            game.players.forEach((player, playerIndex) => {
+                // クールダウン減少
+                if (player.shootCooldown > 0) {
+                    player.shootCooldown -= deltaTime;
+                }
+                
+                // 弾薬回復
+                player.ammoRegenTimer += deltaTime;
+                if (player.ammoRegenTimer >= CONFIG.ammoRegenRate && player.ammo < CONFIG.maxAmmo) {
+                    player.ammo++;
+                    player.ammoRegenTimer = 0;
+                }
+                
+                // バフ時間減少
+                if (player.buffSpread > 0) {
+                    player.buffSpread -= deltaTime;
+                    document.getElementById(`p${playerIndex+1}-buff-spread`).classList.add('active');
+                } else {
+                    document.getElementById(`p${playerIndex+1}-buff-spread`).classList.remove('active');
+                }
+                
+                if (player.buffRicochet > 0) {
+                    player.buffRicochet -= deltaTime;
+                    document.getElementById(`p${playerIndex+1}-buff-ricochet`).classList.add('active');
+                } else {
+                    document.getElementById(`p${playerIndex+1}-buff-ricochet`).classList.remove('active');
+                }
+                
+                if (player.buffBot > 0) {
+                    player.buffBot -= deltaTime;
+                    document.getElementById(`p${playerIndex+1}-buff-bot`).classList.add('active');
+                } else {
+                    document.getElementById(`p${playerIndex+1}-buff-bot`).classList.remove('active');
+                }
+                
+                // 移動処理
+                let dx = 0;
+                let dy = 0;
+                
+                if (game.keys[player.moveKeys.up]) dy -= 1;
+                if (game.keys[player.moveKeys.down]) dy += 1;
+                if (game.keys[player.moveKeys.left]) dx -= 1;
+                if (game.keys[player.moveKeys.right]) dx += 1;
+                
+                // 移動があれば向きを更新
+                if (dx !== 0 || dy !== 0) {
+                    player.angle = Math.atan2(dy, dx);
+                    
+                    // 正規化して速度を一定に
+                    const length = Math.sqrt(dx * dx + dy * dy);
+                    dx = dx / length * player.speed;
+                    dy = dy / length * player.speed;
+                    
+                    // 移動
+                    const newX = player.x + dx;
+                    const newY = player.y + dy;
+                    
+                    // 壁との衝突判定
+                    if (!checkWallCollision({
+                        x: newX,
+                        y: player.y,
+                        radius: player.size / 2
+                    })) {
+                        player.x = newX;
+                    }
+                    
+                    if (!checkWallCollision({
+                        x: player.x,
+                        y: newY,
+                        radius: player.size / 2
+                    })) {
+                        player.y = newY;
+                    }
+                    
+                    // 画面外に出ないように
+                    player.x = Math.max(player.size / 2, Math.min(game.width - player.size / 2, player.x));
+                    player.y = Math.max(player.size / 2, Math.min(game.height - player.size / 2, player.y));
+                } else {
+                    // 移動していない場合は、相手プレイヤーの方を向く
+                    const otherPlayer = game.players[1 - playerIndex];
+                    player.angle = Math.atan2(otherPlayer.y - player.y, otherPlayer.x - player.x);
+                }
+                
+                // 射撃処理
+                if (game.keys[player.shootKey] && player.shootCooldown <= 0 && player.ammo > 0) {
+                    shoot(player, playerIndex);
+                    player.shootCooldown = CONFIG.bulletCooldown;
+                }
+                
+                // アイテム取得
+                checkItemCollision(player, playerIndex);
+            });
+        }
+        
+        // 壁との衝突チェック
+        function checkWallCollision(circle) {
+            for (const wall of game.walls) {
+                // 円と長方形の衝突判定
+                const testX = Math.max(wall.x, Math.min(circle.x, wall.x + wall.width));
+                const testY = Math.max(wall.y, Math.min(circle.y, wall.y + wall.height));
+                
+                const distX = circle.x - testX;
+                const distY = circle.y - testY;
+                const distance = Math.sqrt(distX * distX + distY * distY);
+                
+                if (distance <= circle.radius) {
+                    return true; // 衝突
+                }
+            }
+            
+            return false; // 衝突なし
+        }
+        
+        // 射撃処理
+        function shoot(player, playerIndex) {
+            // 弾薬消費
+            player.ammo--;
+            
+            // 通常弾
+            game.bullets.push({
+                x: player.x + Math.cos(player.angle) * player.size,
+                y: player.y + Math.sin(player.angle) * player.size,
+                angle: player.angle,
+                speed: CONFIG.bulletSpeed,
+                size: CONFIG.bulletSize,
+                color: player.color,
+                owner: playerIndex,
+                ricochet: player.buffRicochet > 0,
+                ricochetsLeft: player.buffRicochet > 0 ? 2 : 0,
+            });
+            
+            // スプレッド弾（バフがある場合）
+            if (player.buffSpread > 0) {
+                // 追加弾 (ランダム散布角)
+                const spreadAngle = Math.PI / 6; // 30度
+                game.bullets.push({
+                    x: player.x + Math.cos(player.angle) * player.size,
+                    y: player.y + Math.sin(player.angle) * player.size,
+                    angle: player.angle + spreadAngle,
+                    speed: CONFIG.bulletSpeed,
+                    size: CONFIG.bulletSize,
+                    color: player.color,
+                    owner: playerIndex,
+                    ricochet: player.buffRicochet > 0,
+                    ricochetsLeft: player.buffRicochet > 0 ? 2 : 0,
+                });
+            }
+            
+            // ボットバフがあればボット生成
+            if (player.buffBot > 0 && Math.random() < 0.2) { // 20%の確率でボット生成
+                player.buffBot = 0; // 使用したらクリア
+                createBot(player, playerIndex);
+            }
+            
+            // 射撃エフェクト
+            addMuzzleFlash(player);
+        }
+        
+        // 銃口フラッシュエフェクト
+        function addMuzzleFlash(player) {
+            game.effects.push({
+                x: player.x + Math.cos(player.angle) * player.size,
+                y: player.y + Math.sin(player.angle) * player.size,
+                radius: 10,
+                alpha: 1,
+                color: '#fff',
+                type: 'flash',
+                duration: 100,
+                elapsed: 0
+            });
+        }
+        
+        // ボット生成
+        function createBot(player, playerIndex) {
+            const bot = {
+                x: player.x + Math.cos(player.angle) * player.size * 2,
+                y: player.y + Math.sin(player.angle) * player.size * 2,
+                angle: player.angle,
+                size: player.size * 0.8,
+                color: player.color,
+                owner: playerIndex,
+                shootCooldown: 0,
+                lifetime: CONFIG.botLifetime,
+                target: game.players[1 - playerIndex]
+            };
+            
+            game.bots.push(bot);
+        }
+        
+        // ボット更新
+        function updateBots(deltaTime) {
+            for (let i = game.bots.length - 1; i >= 0; i--) {
+                const bot = game.bots[i];
+                
+                // 寿命減少
+                bot.lifetime -= deltaTime;
+                if (bot.lifetime <= 0) {
+                    game.bots.splice(i, 1);
+                    continue;
+                }
+                
+                // ターゲットの方向を向く
+                bot.angle = Math.atan2(
+                    bot.target.y - bot.y,
+                    bot.target.x - bot.x
+                );
+                
+                // 徐々にターゲットに近づく
+                const moveSpeed = CONFIG.playerSpeed * 0.7;
+                let dx = Math.cos(bot.angle) * moveSpeed;
+                let dy = Math.sin(bot.angle) * moveSpeed;
+                
+                // 移動
+                const newX = bot.x + dx * deltaTime / 30;
+                const newY = bot.y + dy * deltaTime / 30;
+                
+                // 壁との衝突判定
+                if (!checkWallCollision({
+                    x: newX,
+                    y: bot.y,
+                    radius: bot.size / 2
+                })) {
+                    bot.x = newX;
+                }
+                
+                if (!checkWallCollision({
+                    x: bot.x,
+                    y: newY,
+                    radius: bot.size / 2
+                })) {
+                    bot.y = newY;
+                }
+                
+                // 画面外に出ないように
+                bot.x = Math.max(bot.size / 2, Math.min(game.width - bot.size / 2, bot.x));
+                bot.y = Math.max(bot.size / 2, Math.min(game.height - bot.size / 2, bot.y));
+                
+                // 射撃処理
+                bot.shootCooldown -= deltaTime;
+                if (bot.shootCooldown <= 0) {
+                    // ボットから射撃
+                    game.bullets.push({
+                        x: bot.x + Math.cos(bot.angle) * bot.size,
+                        y: bot.y + Math.sin(bot.angle) * bot.size,
+                        angle: bot.angle,
+                        speed: CONFIG.bulletSpeed * 0.8, // 少し遅い弾
+                        size: CONFIG.bulletSize,
+                        color: bot.color,
+                        owner: bot.owner,
+                        ricochet: false,
+                        ricochetsLeft: 0
+                    });
+                    
+                    // エフェクト
+                    addMuzzleFlash(bot);
+                    
+                    bot.shootCooldown = CONFIG.botShootInterval;
+                }
+                
+                // 点滅エフェクト（寿命が短くなったとき）
+                if (bot.lifetime < 3000 && Math.floor(bot.lifetime / 200) % 2 === 0) {
+                    bot.alpha = 0.5;
+                } else {
+                    bot.alpha = 1;
+                }
+            }
+        }
+        
+        // 弾丸更新
+        function updateBullets(deltaTime) {
+            for (let i = game.bullets.length - 1; i >= 0; i--) {
+                const bullet = game.bullets[i];
+                
+                // 移動
+                bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                
+                // 画面外判定
+                if (bullet.x < 0 || bullet.x > game.width || 
+                    bullet.y < 0 || bullet.y > game.height) {
+                    game.bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // 壁との衝突判定
+                let wallCollision = false;
+                for (const wall of game.walls) {
+                    // 円と長方形の衝突判定
+                    const testX = Math.max(wall.x, Math.min(bullet.x, wall.x + wall.width));
+                    const testY = Math.max(wall.y, Math.min(bullet.y, wall.y + wall.height));
+                    
+                    const distX = bullet.x - testX;
+                    const distY = bullet.y - testY;
+                    const distance = Math.sqrt(distX * distX + distY * distY);
+                    
+                    if (distance <= bullet.size) {
+                        // 壁衝突エフェクト
+                        addImpactEffect(bullet.x, bullet.y, bullet.color);
+                        
+                        // 跳弾 - 必ず跳弾する（ランダムではない）
+                        if (bullet.ricochet && bullet.ricochetsLeft > 0) {
+                            // 反射角度計算（簡易版：ランダムな新しい角度）
+                            bullet.angle = Math.random() * Math.PI * 2;
+                            bullet.ricochetsLeft--;
+                            
+                            // 跳弾エフェクト
+                            addRicochetEffect(bullet.x, bullet.y);
+                        } else {
+                            // 弾を削除
+                            game.bullets.splice(i, 1);
+                        }
+                        
+                        wallCollision = true;
+                        break;
+                    }
+                }
+                
+                if (wallCollision) continue;
+                
+                // プレイヤーとの衝突判定
+                for (let j = 0; j < game.players.length; j++) {
+                    const player = game.players[j];
+                    
+                    // 自分の弾は当たらない
+                    if (bullet.owner === j) continue;
+                    
+                    const dx = bullet.x - player.x;
+                    const dy = bullet.y - player.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < player.size / 2 + bullet.size) {
+                        // ダメージ
+                        player.health -= 10;
+                        
+                        // ヒットエフェクト
+                        addHitEffect(player.x, player.y, player.color);
+                        
+                        // 弾を削除
+                        game.bullets.splice(i, 1);
+                        break;
+                    }
+                }
+                
+                // ボットとの衝突判定
+                for (let j = game.bots.length - 1; j >= 0; j--) {
+                    const bot = game.bots[j];
+                    
+                    // 自分の弾は当たらない
+                    if (bullet.owner === bot.owner) continue;
+                    
+                    const dx = bullet.x - bot.x;
+                    const dy = bullet.y - bot.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < bot.size / 2 + bullet.size) {
+                        // ボットを削除
+                        game.bots.splice(j, 1);
+                        
+                        // ヒットエフェクト
+                        addHitEffect(bot.x, bot.y, bot.color);
+                        
+                        // 弾を削除
+                        game.bullets.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 衝突エフェクト
+        function addImpactEffect(x, y, color) {
+            game.effects.push({
+                x: x,
+                y: y,
+                radius: 5,
+                alpha: 1,
+                color: '#aaa',
+                type: 'impact',
+                duration: 300,
+                elapsed: 0
+            });
+        }
+        
+        // ヒットエフェクト
+        function addHitEffect(x, y, color) {
+            game.effects.push({
+                x: x,
+                y: y,
+                radius: 15,
+                alpha: 1,
+                color: color,
+                type: 'hit',
+                duration: 300,
+                elapsed: 0
+            });
+        }
+        
+        // 跳弾エフェクト
+        function addRicochetEffect(x, y) {
+            game.effects.push({
+                x: x,
+                y: y,
+                radius: 8,
+                alpha: 1,
+                color: '#ff9800',
+                type: 'ricochet',
+                duration: 200,
+                elapsed: 0
+            });
+        }
+        
+        // エフェクト更新
+        function updateEffects(deltaTime) {
+            for (let i = game.effects.length - 1; i >= 0; i--) {
+                const effect = game.effects[i];
+                effect.elapsed += deltaTime;
+                
+                // アルファ値計算
+                effect.alpha = 1 - (effect.elapsed / effect.duration);
+                
+                // 寿命が尽きたらエフェクト削除
+                if (effect.elapsed >= effect.duration) {
+                    game.effects.splice(i, 1);
+                }
+            }
+        }
+        
+        // ランダムアイテム生成
+        function spawnRandomItem() {
+            const itemType = Math.floor(Math.random() * 4); // 0-3のランダム
+            
+            // アイテム位置（壁と衝突しない場所）
+            let x, y;
+            let validPosition = false;
+            
+            while (!validPosition) {
+                x = CONFIG.itemSize + Math.random() * (game.width - CONFIG.itemSize * 2);
+                y = CONFIG.itemSize + Math.random() * (game.height - CONFIG.itemSize * 2);
+                
+                // 壁との衝突チェック
+                validPosition = !checkWallCollision({
+                    x: x,
+                    y: y,
+                    radius: CONFIG.itemSize
+                });
+                
+                // 既存アイテムとの重なりチェック
+                if (validPosition) {
+                    for (const item of game.items) {
+                        const dx = item.x - x;
+                        const dy = item.y - y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < CONFIG.itemSize * 2) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 色とエフェクトの設定
+            let color, effect;
+            switch(itemType) {
+                case ITEM_TYPES.SPREAD:
+                    color = '#ffeb3b'; // 黄色
+                    effect = 'spread';
+                    break;
+                case ITEM_TYPES.RICOCHET:
+                    color = '#ff9800'; // オレンジ
+                    effect = 'ricochet';
+                    break;
+                case ITEM_TYPES.BOT:
+                    color = '#C0C0C0'; // 灰
+                    effect = 'bot';
+                    break;
+                case ITEM_TYPES.HEALTH:
+                    color = '#4caf50'; // 緑
+                    effect = 'health';
+                    break;
+            }
+            
+            game.items.push({
+                x, y, 
+                type: itemType,
+                size: CONFIG.itemSize,
+                color: color,
+                effect: effect,
+                angle: 0,
+                pulseScale: 1
+            });
+        }
+        
+        // アイテム衝突チェック
+        function checkItemCollision(player, playerIndex) {
+            for (let i = game.items.length - 1; i >= 0; i--) {
+                const item = game.items[i];
+                
+                const dx = player.x - item.x;
+                const dy = player.y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < player.size / 2 + item.size) {
+                    // アイテム効果適用
+                    applyItemEffect(player, playerIndex, item.type);
+                    
+                    // アイテム削除
+                    game.items.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        
+        // アイテム効果適用
+        function applyItemEffect(player, playerIndex, itemType) {
+            switch(itemType) {
+                case ITEM_TYPES.SPREAD:
+                    // スプレッド弾
+                    player.buffSpread = CONFIG.buffDuration;
+                    break;
+                case ITEM_TYPES.RICOCHET:
+                    // 跳弾
+                    player.buffRicochet = CONFIG.buffDuration;
+                    break;
+                case ITEM_TYPES.BOT:
+                    // ボット
+                    player.buffBot = CONFIG.buffDuration;
+                    createBot(player, playerIndex);
+                    break;
+                case ITEM_TYPES.HEALTH:
+                    // 回復
+                    player.health = Math.min(player.health + 30, CONFIG.maxHealth);
+                    break;
+            }
+        }
+        
+        // ゲームオーバーチェック
+        function isGameOver() {
+            let gameOver = false;
+            
+            // スペースキーでリスタート
+            if (document.getElementById('game-message').style.display === 'block' && game.keys[KEYS.SPACE]) {
+                resetGame();
+                return false;
+            }
+            
+            // HP0チェック
+            game.players.forEach((player, index) => {
+                if (player.health <= 0) {
+                    gameOver = true;
+                    player.health = 0;
+                    
+                    // メッセージ表示
+                    document.getElementById('message-text').textContent = 
+                        `プレイヤー${index === 0 ? 2 : 1}の勝利！`;
+                    document.getElementById('game-message').style.display = 'block';
+                }
+            });
+            
+            return gameOver;
+        }
+        
+        // UI更新
+        function updateUI() {
+            document.getElementById('p1-health').style.width = `${game.players[0].health}%`;
+            document.getElementById('p2-health').style.width = `${game.players[1].health}%`;
+            document.getElementById('p1-ammo').textContent = game.players[0].ammo;
+            document.getElementById('p2-ammo').textContent = game.players[1].ammo;
+        }
+        
+        // 描画処理
+        function render() {
+            // キャンバスクリア
+            game.ctx.clearRect(0, 0, game.width, game.height);
+            
+            // 背景格子
+            drawGrid();
+            
+            // 壁描画
+            drawWalls();
+            
+            // アイテム描画
+            drawItems();
+            
+            // プレイヤー描画
+            drawPlayers();
+            
+            // ボット描画
+            drawBots();
+            
+            // 弾丸描画
+            drawBullets();
+            
+            // エフェクト描画
+            drawEffects();
+        }
+        
+        // 背景格子描画
+        function drawGrid() {
+            const gridSize = 40;
+            game.ctx.strokeStyle = '#444';
+            game.ctx.lineWidth = 1;
+            
+            // 縦線
+            for (let x = 0; x <= game.width; x += gridSize) {
+                game.ctx.beginPath();
+                game.ctx.moveTo(x, 0);
+                game.ctx.lineTo(x, game.height);
+                game.ctx.stroke();
+            }
+            
+            // 横線
+            for (let y = 0; y <= game.height; y += gridSize) {
+                game.ctx.beginPath();
+                game.ctx.moveTo(0, y);
+                game.ctx.lineTo(game.width, y);
+                game.ctx.stroke();
+            }
+        }
+        
+        // 壁描画
+        function drawWalls() {
+            game.ctx.fillStyle = '#555';
+            game.ctx.strokeStyle = '#666';
+            game.ctx.lineWidth = 2;
+            
+            for (const wall of game.walls) {
+                game.ctx.fillStyle = wall.color;
+                game.ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                game.ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                
+                // 装飾パターン
+                game.ctx.fillStyle = '#444';
+                for (let i = 0; i < 4; i++) {
+                    const dotX = wall.x + Math.random() * wall.width;
+                    const dotY = wall.y + Math.random() * wall.height;
+                    game.ctx.beginPath();
+                    game.ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
+                    game.ctx.fill();
+                }
+            }
+        }
+        
+        // アイテム描画
+        function drawItems() {
+            for (const item of game.items) {
+                // 脈動エフェクト
+                item.angle += 0.05;
+                item.pulseScale = 1 + Math.sin(item.angle) * 0.1;
+                
+                const size = item.size * item.pulseScale;
+                
+                // アイテム本体
+                game.ctx.fillStyle = item.color;
+                game.ctx.beginPath();
+                game.ctx.arc(item.x, item.y, size, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // 光沢
+                game.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                game.ctx.beginPath();
+                game.ctx.arc(item.x - size/3, item.y - size/3, size/3, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // アイコン
+                game.ctx.fillStyle = 'white';
+                game.ctx.textAlign = 'center';
+                game.ctx.textBaseline = 'middle';
+                game.ctx.font = `${Math.floor(size)}px Arial`;
+                
+                let icon = '';
+                switch(item.type) {
+                    case ITEM_TYPES.SPREAD: icon = 'S'; break;
+                    case ITEM_TYPES.RICOCHET: icon = 'R'; break;
+                    case ITEM_TYPES.BOT: icon = 'B'; break;
+                    case ITEM_TYPES.HEALTH: icon = '+'; break;
+                }
+                
+                game.ctx.fillText(icon, item.x, item.y);
+            }
+        }
+        
+        // プレイヤー描画
+        function drawPlayers() {
+            for (const player of game.players) {
+                // 本体
+                game.ctx.fillStyle = player.color;
+                game.ctx.beginPath();
+                game.ctx.arc(player.x, player.y, player.size / 2, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // 向き表示
+                game.ctx.strokeStyle = 'white';
+                game.ctx.lineWidth = 3;
+                game.ctx.beginPath();
+                game.ctx.moveTo(player.x, player.y);
+                game.ctx.lineTo(
+                    player.x + Math.cos(player.angle) * player.size,
+                    player.y + Math.sin(player.angle) * player.size
+                );
+                game.ctx.stroke();
+                
+                // タレット
+                game.ctx.fillStyle = '#333';
+                game.ctx.beginPath();
+                game.ctx.arc(player.x, player.y, player.size / 4, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // 体力バー
+                const healthBarWidth = player.size * 1.5;
+                const healthBarHeight = 4;
+                const healthBarX = player.x - healthBarWidth / 2;
+                const healthBarY = player.y - player.size - 10;
+                
+                // 背景
+                game.ctx.fillStyle = '#333';
+                game.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+                
+                // 体力
+                game.ctx.fillStyle = player.health > 30 ? '#4caf50' : '#f44336';
+                game.ctx.fillRect(
+                    healthBarX, 
+                    healthBarY, 
+                    healthBarWidth * (player.health / CONFIG.maxHealth), 
+                    healthBarHeight
+                );
+            }
+        }
+        
+        // ボット描画
+        function drawBots() {
+            for (const bot of game.bots) {
+                // 透明度
+                game.ctx.globalAlpha = bot.alpha || 1;
+                
+                // 本体
+                game.ctx.fillStyle = bot.color;
+                game.ctx.beginPath();
+                game.ctx.arc(bot.x, bot.y, bot.size / 2, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // 六角形の模様
+                game.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                game.ctx.lineWidth = 1;
+                game.ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = i * Math.PI / 3;
+                    const px = bot.x + Math.cos(angle) * bot.size / 3;
+                    const py = bot.y + Math.sin(angle) * bot.size / 3;
+                    
+                    if (i === 0) {
+                        game.ctx.moveTo(px, py);
+                    } else {
+                        game.ctx.lineTo(px, py);
+                    }
+                }
+                game.ctx.closePath();
+                game.ctx.stroke();
+                
+                // 向き表示
+                game.ctx.strokeStyle = 'white';
+                game.ctx.lineWidth = 2;
+                game.ctx.beginPath();
+                game.ctx.moveTo(bot.x, bot.y);
+                game.ctx.lineTo(
+                    bot.x + Math.cos(bot.angle) * bot.size,
+                    bot.y + Math.sin(bot.angle) * bot.size
+                );
+                game.ctx.stroke();
+                
+                // 透明度リセット
+                game.ctx.globalAlpha = 1;
+            }
+        }
+        
+        // 弾丸描画
+        function drawBullets() {
+            for (const bullet of game.bullets) {
+                // 弾本体
+                game.ctx.fillStyle = bullet.color;
+                game.ctx.beginPath();
+                game.ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+                game.ctx.fill();
+                
+                // 軌跡
+                game.ctx.strokeStyle = bullet.color;
+                game.ctx.lineWidth = 1;
+                game.ctx.beginPath();
+                game.ctx.moveTo(bullet.x, bullet.y);
+                game.ctx.lineTo(
+                    bullet.x - Math.cos(bullet.angle) * bullet.speed * 3,
+                    bullet.y - Math.sin(bullet.angle) * bullet.speed * 3
+                );
+                game.ctx.stroke();
+                
+                // 跳弾効果がある場合の装飾
+                if (bullet.ricochet) {
+                    game.ctx.strokeStyle = '#ff9800';
+                    game.ctx.lineWidth = 2;
+                    game.ctx.beginPath();
+                    game.ctx.arc(bullet.x, bullet.y, bullet.size + 2, 0, Math.PI * 2);
+                    game.ctx.stroke();
+                }
+            }
+        }
+        
+        // エフェクト描画
+        function drawEffects() {
+            for (const effect of game.effects) {
+                game.ctx.globalAlpha = effect.alpha;
+                
+                if (effect.type === 'hit') {
+                    // ヒットエフェクト (爆発円)
+                    game.ctx.fillStyle = effect.color;
+                    game.ctx.beginPath();
+                    game.ctx.arc(effect.x, effect.y, effect.radius * (1 + (1 - effect.alpha)), 0, Math.PI * 2);
+                    game.ctx.fill();
+                } else if (effect.type === 'flash') {
+                    // 銃口フラッシュ
+                    game.ctx.fillStyle = effect.color;
+                    game.ctx.beginPath();
+                    game.ctx.arc(effect.x, effect.y, effect.radius * effect.alpha, 0, Math.PI * 2);
+                    game.ctx.fill();
+                } else if (effect.type === 'impact') {
+                    // 弾痕
+                    game.ctx.fillStyle = effect.color;
+                    game.ctx.beginPath();
+                    game.ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+                    game.ctx.fill();
+                } else if (effect.type === 'ricochet') {
+                    // 跳弾効果
+                    game.ctx.strokeStyle = effect.color;
+                    game.ctx.lineWidth = 2;
+                    game.ctx.beginPath();
+                    game.ctx.arc(effect.x, effect.y, effect.radius * (1 + (1 - effect.alpha)), 0, Math.PI * 2);
+                    game.ctx.stroke();
+                    
+                    // 中心の点
+                    game.ctx.fillStyle = effect.color;
+                    game.ctx.beginPath();
+                    game.ctx.arc(effect.x, effect.y, 2, 0, Math.PI * 2);
+                    game.ctx.fill();
+                }
+                
+                game.ctx.globalAlpha = 1;
+            }
+        }
+        
+        // ゲーム開始
+        window.onload = init;
+    </script>
+</body>
+</html>
