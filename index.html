@@ -270,7 +270,7 @@
                     <div class="option-item">
                         <label>
                             <input type="checkbox" id="p1-start-bot">
-                            開始時ロボット
+                            永続サポート機
                         </label>
                     </div>
                 </div>
@@ -304,7 +304,7 @@
                     <div class="option-item">
                         <label>
                             <input type="checkbox" id="p2-start-bot">
-                            開始時ロボット
+                            永続サポート機
                         </label>
                     </div>
                 </div>
@@ -392,6 +392,7 @@
         // オプションメニュー表示
         function showOptionsMenu() {
             document.getElementById('options-menu').style.display = 'flex';
+            game.running = false;
         }
         
         // オプションメニュー非表示
@@ -423,6 +424,7 @@
             
             // ゲームループ開始
             game.running = true;
+            game.lastTime = performance.now();
             requestAnimationFrame(gameLoop);
         }
         
@@ -464,10 +466,11 @@
                 }
             ];
             
-            // 開始時ロボット生成
+            // 開始時サポート機生成
+            game.bots = [];
             game.players.forEach((player, index) => {
                 if (game.playerOptions[index].startBot) {
-                    createBot(player, index);
+                    createPermanentSupportBots(player, index);
                 }
             });
             
@@ -480,9 +483,6 @@
             // 配列初期化
             game.bullets = [];
             game.items = [];
-            if (!game.players.some((_, index) => game.playerOptions[index].startBot)) {
-                game.bots = [];
-            }
             game.effects = [];
             
             // UI更新
@@ -752,7 +752,35 @@
             });
         }
         
-        // ボット生成
+        // 永続サポート機生成
+        function createPermanentSupportBots(player, playerIndex) {
+            // プレイヤーの周りに2機配置
+            const botDistance = player.size * 1.8;
+            const angles = [Math.PI/4, -Math.PI/4]; // 45度と-45度の位置
+            
+            angles.forEach((angleOffset, i) => {
+                const bot = {
+                    x: player.x + Math.cos(player.angle + angleOffset) * botDistance,
+                    y: player.y + Math.sin(player.angle + angleOffset) * botDistance,
+                    angle: player.angle,
+                    size: player.size * 0.6,
+                    color: player.color,
+                    owner: playerIndex,
+                    shootCooldown: 0,
+                    lifetime: -1, // 永続（-1で無限）
+                    target: game.players[1 - playerIndex],
+                    isPermanent: true,
+                    botIndex: i,
+                    targetDistance: botDistance,
+                    angleOffset: angleOffset,
+                    orbitAngle: angleOffset // 周回用の角度
+                };
+                
+                game.bots.push(bot);
+            });
+        }
+        
+        // ボット生成（アイテム用）
         function createBot(player, playerIndex) {
             const bot = {
                 x: player.x + Math.cos(player.angle) * player.size * 2,
@@ -763,7 +791,8 @@
                 owner: playerIndex,
                 shootCooldown: 0,
                 lifetime: CONFIG.botLifetime,
-                target: game.players[1 - playerIndex]
+                target: game.players[1 - playerIndex],
+                isPermanent: false
             };
             
             game.bots.push(bot);
@@ -774,48 +803,73 @@
             for (let i = game.bots.length - 1; i >= 0; i--) {
                 const bot = game.bots[i];
                 
-                // 寿命減少
-                bot.lifetime -= deltaTime;
-                if (bot.lifetime <= 0) {
-                    game.bots.splice(i, 1);
-                    continue;
+                // 永続ボット以外は寿命減少
+                if (!bot.isPermanent) {
+                    bot.lifetime -= deltaTime;
+                    if (bot.lifetime <= 0) {
+                        game.bots.splice(i, 1);
+                        continue;
+                    }
                 }
                 
-                // ターゲットの方向を向く
-                bot.angle = Math.atan2(
-                    bot.target.y - bot.y,
-                    bot.target.x - bot.x
-                );
-                
-                // 徐々にターゲットに近づく
-                const moveSpeed = CONFIG.playerSpeed * 0.7;
-                let dx = Math.cos(bot.angle) * moveSpeed;
-                let dy = Math.sin(bot.angle) * moveSpeed;
-                
-                // 移動
-                const newX = bot.x + dx * deltaTime / 30;
-                const newY = bot.y + dy * deltaTime / 30;
-                
-                // 壁との衝突判定
-                if (!checkWallCollision({
-                    x: newX,
-                    y: bot.y,
-                    radius: bot.size / 2
-                })) {
-                    bot.x = newX;
+                if (bot.isPermanent) {
+                    // 永続サポート機の動作
+                    const owner = game.players[bot.owner];
+                    
+                    // プレイヤーの周りを周回
+                    bot.orbitAngle += 0.02; // 周回速度
+                    const targetX = owner.x + Math.cos(owner.angle + bot.angleOffset + Math.sin(bot.orbitAngle) * 0.5) * bot.targetDistance;
+                    const targetY = owner.y + Math.sin(owner.angle + bot.angleOffset + Math.sin(bot.orbitAngle) * 0.5) * bot.targetDistance;
+                    
+                    // スムーズに目標位置に移動
+                    const dx = targetX - bot.x;
+                    const dy = targetY - bot.y;
+                    bot.x += dx * 0.1;
+                    bot.y += dy * 0.1;
+                    
+                    // 敵の方を向く
+                    bot.angle = Math.atan2(
+                        bot.target.y - bot.y,
+                        bot.target.x - bot.x
+                    );
+                } else {
+                    // 通常のボット動作（アイテムから生成されたボット）
+                    // ターゲットの方向を向く
+                    bot.angle = Math.atan2(
+                        bot.target.y - bot.y,
+                        bot.target.x - bot.x
+                    );
+                    
+                    // 徐々にターゲットに近づく
+                    const moveSpeed = CONFIG.playerSpeed * 0.7;
+                    let dx = Math.cos(bot.angle) * moveSpeed;
+                    let dy = Math.sin(bot.angle) * moveSpeed;
+                    
+                    // 移動
+                    const newX = bot.x + dx * deltaTime / 30;
+                    const newY = bot.y + dy * deltaTime / 30;
+                    
+                    // 壁との衝突判定
+                    if (!checkWallCollision({
+                        x: newX,
+                        y: bot.y,
+                        radius: bot.size / 2
+                    })) {
+                        bot.x = newX;
+                    }
+                    
+                    if (!checkWallCollision({
+                        x: bot.x,
+                        y: newY,
+                        radius: bot.size / 2
+                    })) {
+                        bot.y = newY;
+                    }
+                    
+                    // 画面外に出ないように
+                    bot.x = Math.max(bot.size / 2, Math.min(game.width - bot.size / 2, bot.x));
+                    bot.y = Math.max(bot.size / 2, Math.min(game.height - bot.size / 2, bot.y));
                 }
-                
-                if (!checkWallCollision({
-                    x: bot.x,
-                    y: newY,
-                    radius: bot.size / 2
-                })) {
-                    bot.y = newY;
-                }
-                
-                // 画面外に出ないように
-                bot.x = Math.max(bot.size / 2, Math.min(game.width - bot.size / 2, bot.x));
-                bot.y = Math.max(bot.size / 2, Math.min(game.height - bot.size / 2, bot.y));
                 
                 // 射撃処理
                 bot.shootCooldown -= deltaTime;
@@ -825,7 +879,7 @@
                         x: bot.x + Math.cos(bot.angle) * bot.size,
                         y: bot.y + Math.sin(bot.angle) * bot.size,
                         angle: bot.angle,
-                        speed: CONFIG.bulletSpeed * 0.8, // 少し遅い弾
+                        speed: CONFIG.bulletSpeed * (bot.isPermanent ? 0.7 : 0.8), // 永続ボットは少し遅い弾
                         size: CONFIG.bulletSize,
                         color: bot.color,
                         owner: bot.owner,
@@ -836,11 +890,11 @@
                     // エフェクト
                     addMuzzleFlash(bot);
                     
-                    bot.shootCooldown = CONFIG.botShootInterval;
+                    bot.shootCooldown = bot.isPermanent ? CONFIG.botShootInterval * 1.5 : CONFIG.botShootInterval;
                 }
                 
-                // 点滅エフェクト（寿命が短くなった時）
-                if (bot.lifetime < 3000 && Math.floor(bot.lifetime / 200) % 2 === 0) {
+                // 点滅エフェクト（通常ボットで寿命が短くなった時のみ）
+                if (!bot.isPermanent && bot.lifetime < 3000 && Math.floor(bot.lifetime / 200) % 2 === 0) {
                     bot.alpha = 0.5;
                 } else {
                     bot.alpha = 1;
@@ -1001,7 +1055,7 @@
         
         // ランダムアイテム生成
         function spawnRandomItem() {
-            const itemType = Math.floor(Math.random() * 3); // 0-2のランダム（跳弾削除）
+            const itemType = Math.floor(Math.random() * 3); // 0-2のランダム
             
             // アイテム位置（壁と衝突しない場所）
             let x, y;
@@ -1085,7 +1139,7 @@
         function applyItemEffect(player, playerIndex, itemType) {
             switch(itemType) {
                 case ITEM_TYPES.SPREAD:
-                    // 3方向弾（スプレッド弾から変更）
+                    // 3方向弾
                     player.buffSpread = CONFIG.buffDuration;
                     break;
                 case ITEM_TYPES.BOT:
@@ -1120,6 +1174,7 @@
                     document.getElementById('message-text').textContent = 
                         `プレイヤー${index === 0 ? 2 : 1}の勝利！`;
                     document.getElementById('game-message').style.display = 'block';
+                    game.running = false;
                 }
             });
             
