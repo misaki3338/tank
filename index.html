@@ -114,6 +114,89 @@
             border-radius: 5px;
             font-size: 12px;
         }
+        
+        .options-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .options-title {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        
+        .player-options {
+            display: flex;
+            gap: 50px;
+        }
+        
+        .player-column {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            min-width: 250px;
+        }
+        
+        .player-column.p1 {
+            border-left: 4px solid #4285f4;
+        }
+        
+        .player-column.p2 {
+            border-left: 4px solid #ea4335;
+        }
+        
+        .player-column h3 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .option-item {
+            margin-bottom: 10px;
+        }
+        
+        .option-item label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        .option-item label:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .option-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+        
+        .start-button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 18px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .start-button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -129,7 +212,6 @@
                 <span class="ammo-count" id="p1-ammo">20</span>
                 <div class="buff-icons">
                     <div id="p1-buff-spread" class="buff-icon" style="background-color: #ffeb3b;"></div>
-                    <div id="p1-buff-ricochet" class="buff-icon" style="background-color: #ff9800;"></div>
                     <div id="p1-buff-bot" class="buff-icon" style="background-color: #C0C0C0;"></div>
                 </div>
             </div>
@@ -137,7 +219,6 @@
             <div class="player-status p2">
                 <div class="buff-icons">
                     <div id="p2-buff-spread" class="buff-icon" style="background-color: #ffeb3b;"></div>
-                    <div id="p2-buff-ricochet" class="buff-icon" style="background-color: #ff9800;"></div>
                     <div id="p2-buff-bot" class="buff-icon" style="background-color: #C0C0C0;"></div>
                 </div>
                 <span class="ammo-count" id="p2-ammo">20</span>
@@ -155,6 +236,80 @@
         
         <div class="control-info">
             P1: WASD移動, G射撃 | P2: ↑←↓→移動, L射撃
+        </div>
+        
+        <div class="options-menu" id="options-menu">
+            <h2 class="options-title">ゲーム開始オプション</h2>
+            <div class="player-options">
+                <div class="player-column p1">
+                    <h3>BLUE プレイヤー</h3>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p1-triple-shot">
+                            3方向射撃
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p1-fast-bullet">
+                            高速弾丸
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p1-homing">
+                            追尾弾丸
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p1-speed">
+                            高速移動
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p1-start-bot">
+                            開始時ロボット
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="player-column p2">
+                    <h3>RED プレイヤー</h3>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p2-triple-shot">
+                            3方向射撃
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p2-fast-bullet">
+                            高速弾丸
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p2-homing">
+                            追尾弾丸
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p2-speed">
+                            高速移動
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label>
+                            <input type="checkbox" id="p2-start-bot">
+                            開始時ロボット
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <button class="start-button" id="start-game">ゲーム開始</button>
         </div>
     </div>
     
@@ -192,14 +347,14 @@
             items: [],
             bots: [],
             effects: [], // エフェクト用
+            playerOptions: [{}, {}] // プレイヤーオプション
         };
         
         // アイテムタイプ
         const ITEM_TYPES = {
             SPREAD: 0,
-            RICOCHET: 1,
-            BOT: 2,
-            HEALTH: 3
+            BOT: 1,
+            HEALTH: 2
         };
         
         // キーコード
@@ -227,7 +382,43 @@
             window.addEventListener('keydown', (e) => { game.keys[e.keyCode] = true; });
             window.addEventListener('keyup', (e) => { game.keys[e.keyCode] = false; });
             
-            // プレイヤー初期化
+            // スタートボタンのイベント
+            document.getElementById('start-game').addEventListener('click', startGame);
+            
+            // オプションメニューを表示
+            showOptionsMenu();
+        }
+        
+        // オプションメニュー表示
+        function showOptionsMenu() {
+            document.getElementById('options-menu').style.display = 'flex';
+        }
+        
+        // オプションメニュー非表示
+        function hideOptionsMenu() {
+            document.getElementById('options-menu').style.display = 'none';
+        }
+        
+        // ゲーム開始
+        function startGame() {
+            // プレイヤーオプションを読み取り
+            game.playerOptions[0] = {
+                tripleShot: document.getElementById('p1-triple-shot').checked,
+                fastBullet: document.getElementById('p1-fast-bullet').checked,
+                homing: document.getElementById('p1-homing').checked,
+                speed: document.getElementById('p1-speed').checked,
+                startBot: document.getElementById('p1-start-bot').checked
+            };
+            
+            game.playerOptions[1] = {
+                tripleShot: document.getElementById('p2-triple-shot').checked,
+                fastBullet: document.getElementById('p2-fast-bullet').checked,
+                homing: document.getElementById('p2-homing').checked,
+                speed: document.getElementById('p2-speed').checked,
+                startBot: document.getElementById('p2-start-bot').checked
+            };
+            
+            hideOptionsMenu();
             resetGame();
             
             // ゲームループ開始
@@ -243,7 +434,7 @@
                     x: game.width * 0.25,
                     y: game.height * 0.5,
                     angle: 0,
-                    speed: CONFIG.playerSpeed,
+                    speed: game.playerOptions[0].speed ? CONFIG.playerSpeed * 1.5 : CONFIG.playerSpeed,
                     size: CONFIG.playerSize,
                     health: CONFIG.maxHealth,
                     ammo: CONFIG.maxAmmo,
@@ -253,14 +444,13 @@
                     moveKeys: {up: KEYS.W, left: KEYS.A, down: KEYS.S, right: KEYS.D},
                     shootKey: KEYS.G,
                     buffSpread: 0,
-                    buffRicochet: 0,
                     buffBot: 0
                 },
                 {
                     x: game.width * 0.75,
                     y: game.height * 0.5,
                     angle: Math.PI,
-                    speed: CONFIG.playerSpeed,
+                    speed: game.playerOptions[1].speed ? CONFIG.playerSpeed * 1.5 : CONFIG.playerSpeed,
                     size: CONFIG.playerSize,
                     health: CONFIG.maxHealth,
                     ammo: CONFIG.maxAmmo,
@@ -270,10 +460,16 @@
                     moveKeys: {up: KEYS.UP, left: KEYS.LEFT, down: KEYS.DOWN, right: KEYS.RIGHT},
                     shootKey: KEYS.L,
                     buffSpread: 0,
-                    buffRicochet: 0,
                     buffBot: 0
                 }
             ];
+            
+            // 開始時ロボット生成
+            game.players.forEach((player, index) => {
+                if (game.playerOptions[index].startBot) {
+                    createBot(player, index);
+                }
+            });
             
             // 壁生成
             game.walls = [];
@@ -284,7 +480,9 @@
             // 配列初期化
             game.bullets = [];
             game.items = [];
-            game.bots = [];
+            if (!game.players.some((_, index) => game.playerOptions[index].startBot)) {
+                game.bots = [];
+            }
             game.effects = [];
             
             // UI更新
@@ -403,13 +601,6 @@
                     document.getElementById(`p${playerIndex+1}-buff-spread`).classList.remove('active');
                 }
                 
-                if (player.buffRicochet > 0) {
-                    player.buffRicochet -= deltaTime;
-                    document.getElementById(`p${playerIndex+1}-buff-ricochet`).classList.add('active');
-                } else {
-                    document.getElementById(`p${playerIndex+1}-buff-ricochet`).classList.remove('active');
-                }
-                
                 if (player.buffBot > 0) {
                     player.buffBot -= deltaTime;
                     document.getElementById(`p${playerIndex+1}-buff-bot`).classList.add('active');
@@ -500,33 +691,40 @@
             // 弾薬消費
             player.ammo--;
             
-            // 通常弾
-            game.bullets.push({
-                x: player.x + Math.cos(player.angle) * player.size,
-                y: player.y + Math.sin(player.angle) * player.size,
-                angle: player.angle,
-                speed: CONFIG.bulletSpeed,
-                size: CONFIG.bulletSize,
-                color: player.color,
-                owner: playerIndex,
-                ricochet: player.buffRicochet > 0,
-                ricochetsLeft: player.buffRicochet > 0 ? 2 : 0,
-            });
+            const options = game.playerOptions[playerIndex];
+            const bulletSpeed = options.fastBullet ? CONFIG.bulletSpeed * 1.8 : CONFIG.bulletSpeed;
             
-            // スプレッド弾（バフがある場合）
-            if (player.buffSpread > 0) {
-                // 追加弾 (ランダム散布角)
-                const spreadAngle = Math.PI / 6; // 30度
+            // 通常弾または3方向弾
+            if (options.tripleShot || player.buffSpread > 0) {
+                // 3方向弾
+                const spreadAngles = [-Math.PI/6, 0, Math.PI/6]; // -30°, 0°, 30°
+                spreadAngles.forEach(spreadAngle => {
+                    game.bullets.push({
+                        x: player.x + Math.cos(player.angle + spreadAngle) * player.size,
+                        y: player.y + Math.sin(player.angle + spreadAngle) * player.size,
+                        angle: player.angle + spreadAngle,
+                        speed: bulletSpeed,
+                        size: CONFIG.bulletSize,
+                        color: player.color,
+                        owner: playerIndex,
+                        homing: options.homing,
+                        homingStrength: options.homing ? 0.05 : 0,
+                        target: game.players[1 - playerIndex]
+                    });
+                });
+            } else {
+                // 通常弾
                 game.bullets.push({
                     x: player.x + Math.cos(player.angle) * player.size,
                     y: player.y + Math.sin(player.angle) * player.size,
-                    angle: player.angle + spreadAngle,
-                    speed: CONFIG.bulletSpeed,
+                    angle: player.angle,
+                    speed: bulletSpeed,
                     size: CONFIG.bulletSize,
                     color: player.color,
                     owner: playerIndex,
-                    ricochet: player.buffRicochet > 0,
-                    ricochetsLeft: player.buffRicochet > 0 ? 2 : 0,
+                    homing: options.homing,
+                    homingStrength: options.homing ? 0.05 : 0,
+                    target: game.players[1 - playerIndex]
                 });
             }
             
@@ -631,8 +829,8 @@
                         size: CONFIG.bulletSize,
                         color: bot.color,
                         owner: bot.owner,
-                        ricochet: false,
-                        ricochetsLeft: 0
+                        homing: false,
+                        homingStrength: 0
                     });
                     
                     // エフェクト
@@ -641,7 +839,7 @@
                     bot.shootCooldown = CONFIG.botShootInterval;
                 }
                 
-                // 点滅エフェクト（寿命が短くなったとき）
+                // 点滅エフェクト（寿命が短くなった時）
                 if (bot.lifetime < 3000 && Math.floor(bot.lifetime / 200) % 2 === 0) {
                     bot.alpha = 0.5;
                 } else {
@@ -654,6 +852,23 @@
         function updateBullets(deltaTime) {
             for (let i = game.bullets.length - 1; i >= 0; i--) {
                 const bullet = game.bullets[i];
+                
+                // 追尾処理
+                if (bullet.homing && bullet.target) {
+                    const targetAngle = Math.atan2(
+                        bullet.target.y - bullet.y,
+                        bullet.target.x - bullet.x
+                    );
+                    
+                    // 角度を徐々に調整
+                    let angleDiff = targetAngle - bullet.angle;
+                    
+                    // 角度の正規化
+                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    
+                    bullet.angle += angleDiff * bullet.homingStrength;
+                }
                 
                 // 移動
                 bullet.x += Math.cos(bullet.angle) * bullet.speed;
@@ -681,19 +896,8 @@
                         // 壁衝突エフェクト
                         addImpactEffect(bullet.x, bullet.y, bullet.color);
                         
-                        // 跳弾 - 必ず跳弾する（ランダムではない）
-                        if (bullet.ricochet && bullet.ricochetsLeft > 0) {
-                            // 反射角度計算（簡易版：ランダムな新しい角度）
-                            bullet.angle = Math.random() * Math.PI * 2;
-                            bullet.ricochetsLeft--;
-                            
-                            // 跳弾エフェクト
-                            addRicochetEffect(bullet.x, bullet.y);
-                        } else {
-                            // 弾を削除
-                            game.bullets.splice(i, 1);
-                        }
-                        
+                        // 弾を削除
+                        game.bullets.splice(i, 1);
                         wallCollision = true;
                         break;
                     }
@@ -779,20 +983,6 @@
             });
         }
         
-        // 跳弾エフェクト
-        function addRicochetEffect(x, y) {
-            game.effects.push({
-                x: x,
-                y: y,
-                radius: 8,
-                alpha: 1,
-                color: '#ff9800',
-                type: 'ricochet',
-                duration: 200,
-                elapsed: 0
-            });
-        }
-        
         // エフェクト更新
         function updateEffects(deltaTime) {
             for (let i = game.effects.length - 1; i >= 0; i--) {
@@ -811,7 +1001,7 @@
         
         // ランダムアイテム生成
         function spawnRandomItem() {
-            const itemType = Math.floor(Math.random() * 4); // 0-3のランダム
+            const itemType = Math.floor(Math.random() * 3); // 0-2のランダム（跳弾削除）
             
             // アイテム位置（壁と衝突しない場所）
             let x, y;
@@ -849,10 +1039,6 @@
                 case ITEM_TYPES.SPREAD:
                     color = '#ffeb3b'; // 黄色
                     effect = 'spread';
-                    break;
-                case ITEM_TYPES.RICOCHET:
-                    color = '#ff9800'; // オレンジ
-                    effect = 'ricochet';
                     break;
                 case ITEM_TYPES.BOT:
                     color = '#C0C0C0'; // 灰
@@ -899,12 +1085,8 @@
         function applyItemEffect(player, playerIndex, itemType) {
             switch(itemType) {
                 case ITEM_TYPES.SPREAD:
-                    // スプレッド弾
+                    // 3方向弾（スプレッド弾から変更）
                     player.buffSpread = CONFIG.buffDuration;
-                    break;
-                case ITEM_TYPES.RICOCHET:
-                    // 跳弾
-                    player.buffRicochet = CONFIG.buffDuration;
                     break;
                 case ITEM_TYPES.BOT:
                     // ボット
@@ -924,7 +1106,7 @@
             
             // スペースキーでリスタート
             if (document.getElementById('game-message').style.display === 'block' && game.keys[KEYS.SPACE]) {
-                resetGame();
+                showOptionsMenu();
                 return false;
             }
             
@@ -1054,8 +1236,7 @@
                 
                 let icon = '';
                 switch(item.type) {
-                    case ITEM_TYPES.SPREAD: icon = 'S'; break;
-                    case ITEM_TYPES.RICOCHET: icon = 'R'; break;
+                    case ITEM_TYPES.SPREAD: icon = '3'; break; // 3方向を表す数字
                     case ITEM_TYPES.BOT: icon = 'B'; break;
                     case ITEM_TYPES.HEALTH: icon = '+'; break;
                 }
@@ -1084,7 +1265,7 @@
                 );
                 game.ctx.stroke();
                 
-                // タレット
+                // ターレット
                 game.ctx.fillStyle = '#333';
                 game.ctx.beginPath();
                 game.ctx.arc(player.x, player.y, player.size / 4, 0, Math.PI * 2);
@@ -1177,9 +1358,9 @@
                 );
                 game.ctx.stroke();
                 
-                // 跳弾効果がある場合の装飾
-                if (bullet.ricochet) {
-                    game.ctx.strokeStyle = '#ff9800';
+                // 追尾効果がある場合の装飾
+                if (bullet.homing) {
+                    game.ctx.strokeStyle = '#00ff00';
                     game.ctx.lineWidth = 2;
                     game.ctx.beginPath();
                     game.ctx.arc(bullet.x, bullet.y, bullet.size + 2, 0, Math.PI * 2);
@@ -1210,19 +1391,6 @@
                     game.ctx.fillStyle = effect.color;
                     game.ctx.beginPath();
                     game.ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-                    game.ctx.fill();
-                } else if (effect.type === 'ricochet') {
-                    // 跳弾効果
-                    game.ctx.strokeStyle = effect.color;
-                    game.ctx.lineWidth = 2;
-                    game.ctx.beginPath();
-                    game.ctx.arc(effect.x, effect.y, effect.radius * (1 + (1 - effect.alpha)), 0, Math.PI * 2);
-                    game.ctx.stroke();
-                    
-                    // 中心の点
-                    game.ctx.fillStyle = effect.color;
-                    game.ctx.beginPath();
-                    game.ctx.arc(effect.x, effect.y, 2, 0, Math.PI * 2);
                     game.ctx.fill();
                 }
                 
