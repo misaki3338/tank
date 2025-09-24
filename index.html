@@ -11,10 +11,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             background-color: #2d2d2d;
             font-family: 'Arial', sans-serif;
-            overflow: hidden;
+            overflow-x: hidden;
             color: white;
         }
         
@@ -103,6 +103,7 @@
             border-radius: 10px;
             text-align: center;
             display: none;
+            z-index: 200;
         }
         
         .control-info {
@@ -121,30 +122,83 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
+            background-color: rgba(0, 0, 0, 0.95);
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
         }
         
         .options-title {
             font-size: 24px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             color: #fff;
+        }
+        
+        .game-settings {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .game-settings h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #ffeb3b;
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .setting-item label {
+            flex: 1;
+            margin-right: 10px;
+        }
+        
+        .setting-item input[type="number"], .setting-item input[type="range"] {
+            width: 60px;
+            padding: 2px 5px;
+            border: 1px solid #666;
+            background-color: #333;
+            color: white;
+            border-radius: 3px;
+        }
+        
+        .setting-item input[type="range"] {
+            width: 80px;
         }
         
         .player-options {
             display: flex;
-            gap: 50px;
+            gap: 30px;
+            width: 100%;
+            max-width: 800px;
+            justify-content: center;
         }
         
         .player-column {
             background-color: rgba(255, 255, 255, 0.1);
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            min-width: 250px;
+            min-width: 200px;
+            flex: 1;
         }
         
         .player-column.p1 {
@@ -157,19 +211,19 @@
         
         .player-column h3 {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
         .option-item {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .option-item label {
             display: flex;
             align-items: center;
             cursor: pointer;
-            padding: 5px;
-            border-radius: 5px;
+            padding: 3px;
+            border-radius: 3px;
             transition: background-color 0.2s;
         }
         
@@ -178,12 +232,12 @@
         }
         
         .option-item input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(1.2);
+            margin-right: 8px;
+            transform: scale(1.1);
         }
         
         .start-button {
-            margin-top: 30px;
+            margin-top: 20px;
             padding: 15px 40px;
             font-size: 18px;
             background-color: #4caf50;
@@ -196,6 +250,13 @@
         
         .start-button:hover {
             background-color: #45a049;
+        }
+        
+        .section-divider {
+            width: 100%;
+            height: 1px;
+            background-color: #555;
+            margin: 15px 0;
         }
     </style>
 </head>
@@ -235,18 +296,105 @@
         </div>
         
         <div class="control-info">
-            P1: WASD移動, G射撃 | P2: ↑←↓→移動, L射撃
+            P1: WASD移動, G射撃 | P2: ↑←↓→移動, L射撃 | スペース: リスタート
         </div>
         
         <div class="options-menu" id="options-menu">
-            <h2 class="options-title">ゲーム開始オプション</h2>
+            <h2 class="options-title">ゲーム設定</h2>
+            
+            <!-- ゲーム全体設定 -->
+            <div class="game-settings">
+                <h3>ゲーム基本設定</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>プレイヤー移動速度:</label>
+                        <input type="number" id="player-speed" value="3" min="1" max="10" step="0.5">
+                    </div>
+                    <div class="setting-item">
+                        <label>弾丸速度:</label>
+                        <input type="number" id="bullet-speed" value="5" min="2" max="15" step="0.5">
+                    </div>
+                    <div class="setting-item">
+                        <label>射撃間隔(ms):</label>
+                        <input type="number" id="bullet-cooldown" value="400" min="100" max="2000" step="50">
+                    </div>
+                    <div class="setting-item">
+                        <label>最大体力:</label>
+                        <input type="number" id="max-health" value="100" min="50" max="300" step="10">
+                    </div>
+                    <div class="setting-item">
+                        <label>最大弾薬:</label>
+                        <input type="number" id="max-ammo" value="20" min="10" max="100" step="5">
+                    </div>
+                    <div class="setting-item">
+                        <label>弾薬回復間隔(ms):</label>
+                        <input type="number" id="ammo-regen" value="2000" min="500" max="5000" step="100">
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>スプレッド弾数:</label>
+                        <input type="number" id="spread-count" value="3" min="2" max="7" step="1">
+                    </div>
+                    <div class="setting-item">
+                        <label>スプレッド角度(度):</label>
+                        <input type="number" id="spread-angle" value="30" min="10" max="90" step="5">
+                    </div>
+                    <div class="setting-item">
+                        <label>高速弾倍率:</label>
+                        <input type="number" id="fast-bullet-mult" value="1.8" min="1.2" max="3.0" step="0.1">
+                    </div>
+                    <div class="setting-item">
+                        <label>高速移動倍率:</label>
+                        <input type="number" id="speed-mult" value="1.5" min="1.2" max="3.0" step="0.1">
+                    </div>
+                    <div class="setting-item">
+                        <label>追尾弾強度:</label>
+                        <input type="number" id="homing-strength" value="0.05" min="0.01" max="0.2" step="0.01">
+                    </div>
+                    <div class="setting-item">
+                        <label>壁の数:</label>
+                        <input type="number" id="wall-count" value="15" min="5" max="30" step="1">
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>サポート機の数:</label>
+                        <input type="number" id="support-bot-count" value="2" min="1" max="4" step="1">
+                    </div>
+                    <div class="setting-item">
+                        <label>ボット寿命(ms):</label>
+                        <input type="number" id="bot-lifetime" value="15000" min="5000" max="30000" step="1000">
+                    </div>
+                    <div class="setting-item">
+                        <label>ボット射撃間隔(ms):</label>
+                        <input type="number" id="bot-shoot-interval" value="1500" min="500" max="3000" step="100">
+                    </div>
+                    <div class="setting-item">
+                        <label>バフ持続時間(ms):</label>
+                        <input type="number" id="buff-duration" value="10000" min="3000" max="30000" step="1000">
+                    </div>
+                    <div class="setting-item">
+                        <label>アイテムスポーン率:</label>
+                        <input type="number" id="item-spawn-rate" value="0.002" min="0.001" max="0.01" step="0.001">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- プレイヤー設定 -->
             <div class="player-options">
                 <div class="player-column p1">
                     <h3>BLUE プレイヤー</h3>
                     <div class="option-item">
                         <label>
                             <input type="checkbox" id="p1-triple-shot">
-                            3方向射撃
+                            スプレッド射撃
                         </label>
                     </div>
                     <div class="option-item">
@@ -280,7 +428,7 @@
                     <div class="option-item">
                         <label>
                             <input type="checkbox" id="p2-triple-shot">
-                            3方向射撃
+                            スプレッド射撃
                         </label>
                     </div>
                     <div class="option-item">
@@ -314,22 +462,28 @@
     </div>
     
     <script>
-        // ゲームコンフィグ
-        const CONFIG = {
+        // デフォルトゲームコンフィグ
+        let CONFIG = {
             playerSpeed: 3,
             bulletSpeed: 5,
-            bulletCooldown: 400, // ms
+            bulletCooldown: 400,
             playerSize: 20,
             bulletSize: 5,
             maxHealth: 100,
             maxAmmo: 20,
-            ammoRegenRate: 2000, // ms per ammo regeneration
-            itemSpawnRate: 0.002, // 毎フレームのアイテムスポーン確率
+            ammoRegenRate: 2000,
+            itemSpawnRate: 0.002,
             itemSize: 10,
-            buffDuration: 10000, // ms
-            botLifetime: 15000, // ms
-            botShootInterval: 1500, // ms
-            wallCount: 15, // 壁の数
+            buffDuration: 10000,
+            botLifetime: 15000,
+            botShootInterval: 1500,
+            wallCount: 15,
+            spreadCount: 3,
+            spreadAngle: 30,
+            fastBulletMult: 1.8,
+            speedMult: 1.5,
+            homingStrength: 0.05,
+            supportBotCount: 2
         };
         
         // ゲーム状態
@@ -339,6 +493,7 @@
             width: 800,
             height: 600,
             running: false,
+            gameOver: false,
             lastTime: 0,
             keys: {},
             players: [],
@@ -346,8 +501,8 @@
             walls: [],
             items: [],
             bots: [],
-            effects: [], // エフェクト用
-            playerOptions: [{}, {}] // プレイヤーオプション
+            effects: [],
+            playerOptions: [{}, {}]
         };
         
         // アイテムタイプ
@@ -379,8 +534,8 @@
             game.height = game.canvas.height;
             
             // イベントリスナー
-            window.addEventListener('keydown', (e) => { game.keys[e.keyCode] = true; });
-            window.addEventListener('keyup', (e) => { game.keys[e.keyCode] = false; });
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
             
             // スタートボタンのイベント
             document.getElementById('start-game').addEventListener('click', startGame);
@@ -389,10 +544,50 @@
             showOptionsMenu();
         }
         
+        // キーダウンハンドラ
+        function handleKeyDown(e) {
+            game.keys[e.keyCode] = true;
+            
+            // ゲームオーバー時のスペースキー処理
+            if (e.keyCode === KEYS.SPACE && game.gameOver) {
+                e.preventDefault();
+                showOptionsMenu();
+                return;
+            }
+        }
+        
+        // キーアップハンドラ
+        function handleKeyUp(e) {
+            game.keys[e.keyCode] = false;
+        }
+        
+        // 設定値を読み込み
+        function loadSettings() {
+            CONFIG.playerSpeed = parseFloat(document.getElementById('player-speed').value);
+            CONFIG.bulletSpeed = parseFloat(document.getElementById('bullet-speed').value);
+            CONFIG.bulletCooldown = parseInt(document.getElementById('bullet-cooldown').value);
+            CONFIG.maxHealth = parseInt(document.getElementById('max-health').value);
+            CONFIG.maxAmmo = parseInt(document.getElementById('max-ammo').value);
+            CONFIG.ammoRegenRate = parseInt(document.getElementById('ammo-regen').value);
+            CONFIG.spreadCount = parseInt(document.getElementById('spread-count').value);
+            CONFIG.spreadAngle = parseFloat(document.getElementById('spread-angle').value);
+            CONFIG.fastBulletMult = parseFloat(document.getElementById('fast-bullet-mult').value);
+            CONFIG.speedMult = parseFloat(document.getElementById('speed-mult').value);
+            CONFIG.homingStrength = parseFloat(document.getElementById('homing-strength').value);
+            CONFIG.wallCount = parseInt(document.getElementById('wall-count').value);
+            CONFIG.supportBotCount = parseInt(document.getElementById('support-bot-count').value);
+            CONFIG.botLifetime = parseInt(document.getElementById('bot-lifetime').value);
+            CONFIG.botShootInterval = parseInt(document.getElementById('bot-shoot-interval').value);
+            CONFIG.buffDuration = parseInt(document.getElementById('buff-duration').value);
+            CONFIG.itemSpawnRate = parseFloat(document.getElementById('item-spawn-rate').value);
+        }
+        
         // オプションメニュー表示
         function showOptionsMenu() {
             document.getElementById('options-menu').style.display = 'flex';
+            document.getElementById('game-message').style.display = 'none';
             game.running = false;
+            game.gameOver = false;
         }
         
         // オプションメニュー非表示
@@ -402,6 +597,9 @@
         
         // ゲーム開始
         function startGame() {
+            // 設定値読み込み
+            loadSettings();
+            
             // プレイヤーオプションを読み取り
             game.playerOptions[0] = {
                 tripleShot: document.getElementById('p1-triple-shot').checked,
@@ -424,6 +622,7 @@
             
             // ゲームループ開始
             game.running = true;
+            game.gameOver = false;
             game.lastTime = performance.now();
             requestAnimationFrame(gameLoop);
         }
@@ -436,12 +635,12 @@
                     x: game.width * 0.25,
                     y: game.height * 0.5,
                     angle: 0,
-                    speed: game.playerOptions[0].speed ? CONFIG.playerSpeed * 1.5 : CONFIG.playerSpeed,
+                    speed: game.playerOptions[0].speed ? CONFIG.playerSpeed * CONFIG.speedMult : CONFIG.playerSpeed,
                     size: CONFIG.playerSize,
                     health: CONFIG.maxHealth,
                     ammo: CONFIG.maxAmmo,
                     ammoRegenTimer: 0,
-                    color: '#4285f4', // 青プレイヤー
+                    color: '#4285f4',
                     shootCooldown: 0,
                     moveKeys: {up: KEYS.W, left: KEYS.A, down: KEYS.S, right: KEYS.D},
                     shootKey: KEYS.G,
@@ -452,12 +651,12 @@
                     x: game.width * 0.75,
                     y: game.height * 0.5,
                     angle: Math.PI,
-                    speed: game.playerOptions[1].speed ? CONFIG.playerSpeed * 1.5 : CONFIG.playerSpeed,
+                    speed: game.playerOptions[1].speed ? CONFIG.playerSpeed * CONFIG.speedMult : CONFIG.playerSpeed,
                     size: CONFIG.playerSize,
                     health: CONFIG.maxHealth,
                     ammo: CONFIG.maxAmmo,
                     ammoRegenTimer: 0,
-                    color: '#ea4335', // 赤プレイヤー
+                    color: '#ea4335',
                     shootCooldown: 0,
                     moveKeys: {up: KEYS.UP, left: KEYS.LEFT, down: KEYS.DOWN, right: KEYS.RIGHT},
                     shootKey: KEYS.L,
@@ -487,9 +686,6 @@
             
             // UI更新
             updateUI();
-            
-            // メッセージ非表示
-            document.getElementById('game-message').style.display = 'none';
         }
         
         // ランダムな壁を生成
@@ -547,13 +743,15 @@
             render();
             
             // 次のフレーム
-            requestAnimationFrame(gameLoop);
+            if (game.running) {
+                requestAnimationFrame(gameLoop);
+            }
         }
         
         // 更新処理
         function update(deltaTime) {
             // ゲームオーバーチェック
-            if (isGameOver()) {
+            if (checkGameOver()) {
                 return;
             }
             
@@ -692,26 +890,31 @@
             player.ammo--;
             
             const options = game.playerOptions[playerIndex];
-            const bulletSpeed = options.fastBullet ? CONFIG.bulletSpeed * 1.8 : CONFIG.bulletSpeed;
+            const bulletSpeed = options.fastBullet ? CONFIG.bulletSpeed * CONFIG.fastBulletMult : CONFIG.bulletSpeed;
             
-            // 通常弾または3方向弾
+            // 通常弾またはスプレッド弾
             if (options.tripleShot || player.buffSpread > 0) {
-                // 3方向弾
-                const spreadAngles = [-Math.PI/6, 0, Math.PI/6]; // -30°, 0°, 30°
-                spreadAngles.forEach(spreadAngle => {
+                // スプレッド弾
+                const spreadCount = CONFIG.spreadCount;
+                const spreadAngleRad = (CONFIG.spreadAngle * Math.PI) / 180; // 度からラジアンに変換
+                const angleStep = spreadCount > 1 ? spreadAngleRad / (spreadCount - 1) : 0;
+                const startAngle = player.angle - spreadAngleRad / 2;
+                
+                for (let i = 0; i < spreadCount; i++) {
+                    const bulletAngle = startAngle + angleStep * i;
                     game.bullets.push({
-                        x: player.x + Math.cos(player.angle + spreadAngle) * player.size,
-                        y: player.y + Math.sin(player.angle + spreadAngle) * player.size,
-                        angle: player.angle + spreadAngle,
+                        x: player.x + Math.cos(bulletAngle) * player.size,
+                        y: player.y + Math.sin(bulletAngle) * player.size,
+                        angle: bulletAngle,
                         speed: bulletSpeed,
                         size: CONFIG.bulletSize,
                         color: player.color,
                         owner: playerIndex,
                         homing: options.homing,
-                        homingStrength: options.homing ? 0.05 : 0,
+                        homingStrength: options.homing ? CONFIG.homingStrength : 0,
                         target: game.players[1 - playerIndex]
                     });
-                });
+                }
             } else {
                 // 通常弾
                 game.bullets.push({
@@ -723,7 +926,7 @@
                     color: player.color,
                     owner: playerIndex,
                     homing: options.homing,
-                    homingStrength: options.homing ? 0.05 : 0,
+                    homingStrength: options.homing ? CONFIG.homingStrength : 0,
                     target: game.players[1 - playerIndex]
                 });
             }
@@ -754,11 +957,13 @@
         
         // 永続サポート機生成
         function createPermanentSupportBots(player, playerIndex) {
-            // プレイヤーの周りに2機配置
+            // プレイヤーの周りに指定数配置
             const botDistance = player.size * 1.8;
-            const angles = [Math.PI/4, -Math.PI/4]; // 45度と-45度の位置
+            const botCount = CONFIG.supportBotCount;
+            const angleStep = (2 * Math.PI) / botCount;
             
-            angles.forEach((angleOffset, i) => {
+            for (let i = 0; i < botCount; i++) {
+                const angleOffset = angleStep * i;
                 const bot = {
                     x: player.x + Math.cos(player.angle + angleOffset) * botDistance,
                     y: player.y + Math.sin(player.angle + angleOffset) * botDistance,
@@ -777,7 +982,7 @@
                 };
                 
                 game.bots.push(bot);
-            });
+            }
         }
         
         // ボット生成（アイテム用）
@@ -1060,8 +1265,9 @@
             // アイテム位置（壁と衝突しない場所）
             let x, y;
             let validPosition = false;
+            let attempts = 0;
             
-            while (!validPosition) {
+            while (!validPosition && attempts < 50) {
                 x = CONFIG.itemSize + Math.random() * (game.width - CONFIG.itemSize * 2);
                 y = CONFIG.itemSize + Math.random() * (game.height - CONFIG.itemSize * 2);
                 
@@ -1085,7 +1291,10 @@
                         }
                     }
                 }
+                attempts++;
             }
+            
+            if (!validPosition) return; // 適切な位置が見つからない場合は諦める
             
             // 色とエフェクトの設定
             let color, effect;
@@ -1139,7 +1348,7 @@
         function applyItemEffect(player, playerIndex, itemType) {
             switch(itemType) {
                 case ITEM_TYPES.SPREAD:
-                    // 3方向弾
+                    // スプレッド弾
                     player.buffSpread = CONFIG.buffDuration;
                     break;
                 case ITEM_TYPES.BOT:
@@ -1155,38 +1364,37 @@
         }
         
         // ゲームオーバーチェック
-        function isGameOver() {
-            let gameOver = false;
-            
-            // スペースキーでリスタート
-            if (document.getElementById('game-message').style.display === 'block' && game.keys[KEYS.SPACE]) {
-                showOptionsMenu();
-                return false;
-            }
-            
+        function checkGameOver() {
             // HP0チェック
-            game.players.forEach((player, index) => {
+            for (let index = 0; index < game.players.length; index++) {
+                const player = game.players[index];
                 if (player.health <= 0) {
-                    gameOver = true;
                     player.health = 0;
+                    
+                    // ゲーム終了処理
+                    game.running = false;
+                    game.gameOver = true;
                     
                     // メッセージ表示
                     document.getElementById('message-text').textContent = 
                         `プレイヤー${index === 0 ? 2 : 1}の勝利！`;
                     document.getElementById('game-message').style.display = 'block';
-                    game.running = false;
+                    
+                    return true;
                 }
-            });
+            }
             
-            return gameOver;
+            return false;
         }
         
         // UI更新
         function updateUI() {
-            document.getElementById('p1-health').style.width = `${game.players[0].health}%`;
-            document.getElementById('p2-health').style.width = `${game.players[1].health}%`;
-            document.getElementById('p1-ammo').textContent = game.players[0].ammo;
-            document.getElementById('p2-ammo').textContent = game.players[1].ammo;
+            if (game.players.length >= 2) {
+                document.getElementById('p1-health').style.width = `${Math.max(0, game.players[0].health)}%`;
+                document.getElementById('p2-health').style.width = `${Math.max(0, game.players[1].health)}%`;
+                document.getElementById('p1-ammo').textContent = game.players[0].ammo;
+                document.getElementById('p2-ammo').textContent = game.players[1].ammo;
+            }
         }
         
         // 描画処理
@@ -1253,8 +1461,8 @@
                 // 装飾パターン
                 game.ctx.fillStyle = '#444';
                 for (let i = 0; i < 4; i++) {
-                    const dotX = wall.x + Math.random() * wall.width;
-                    const dotY = wall.y + Math.random() * wall.height;
+                    const dotX = wall.x + wall.width * 0.2 + Math.random() * wall.width * 0.6;
+                    const dotY = wall.y + wall.height * 0.2 + Math.random() * wall.height * 0.6;
                     game.ctx.beginPath();
                     game.ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
                     game.ctx.fill();
@@ -1291,9 +1499,9 @@
                 
                 let icon = '';
                 switch(item.type) {
-                    case ITEM_TYPES.SPREAD: icon = '3'; break; // 3方向を表す数字
-                    case ITEM_TYPES.BOT: icon = 'B'; break;
-                    case ITEM_TYPES.HEALTH: icon = '+'; break;
+                    case ITEM_TYPES.SPREAD: icon = 'S'; break; // スプレッド
+                    case ITEM_TYPES.BOT: icon = 'B'; break;    // ボット
+                    case ITEM_TYPES.HEALTH: icon = '+'; break; // 回復
                 }
                 
                 game.ctx.fillText(icon, item.x, item.y);
